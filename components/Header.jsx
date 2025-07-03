@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
-import { Codesandbox, LayoutDashboard, PenBox } from "lucide-react";
+import { Codesandbox, LayoutDashboard, PenBox, VideoIcon } from "lucide-react";
 import Link from "next/link"; // ✅ Add this import
 import React from "react";
 
@@ -17,7 +17,7 @@ const Header = () => {
           <SignedIn>
             <Link
               href="/dashboard"
-              className="text-gray-600 hover:text-blue-600 flex items-center gap-2"
+              className=" hover:text-blue-600 flex items-center gap-2"
             >
               <Button variant="outline">
                 <LayoutDashboard size={18} />
@@ -26,9 +26,17 @@ const Header = () => {
             </Link>
             <Link href="/visualize">
             
-              <Button className="flex items-center gap-2">
+              <Button className="flex items-center gap-2" variant="outline">
                 <PenBox size={18} />
                 <span className="hidden md:inline">Visualize</span>
+              </Button>
+            
+            </Link>
+            <Link href="/connect">
+            
+              <Button className="flex items-center gap-2" variant="outline">
+                <VideoIcon size={18} />
+                <span className="hidden md:inline">Connect</span>
               </Button>
             
             </Link>

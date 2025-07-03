@@ -20,6 +20,7 @@ const Page = () => {
     { label: "C", key: "c" },
     { label: "Java", key: "java" },
     { label: "Python", key: "python" },
+    {label:"DryRun",key:"dryRun"}
   ];
 
   useEffect(() => {
@@ -129,7 +130,7 @@ const Page = () => {
         </div>
 
         {/* RIGHT SECTION */}
-        <div className="w-full lg:w-1/2 space-y-6">
+        <div className="w-full lg:w-1/2 space-y-6 pt-10">
           {/* Video */}
           <div className="bg-[#fefefe] rounded-xl shadow p-4 flex items-center justify-center text-gray-500 italic min-h-[300px]">
             {videoURL ? (
