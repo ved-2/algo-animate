@@ -34,13 +34,43 @@ const Page = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ script: parsed.manimScript }),
       })
-        .then((res) => res.blob())
-        .then((blob) => setVideoURL(URL.createObjectURL(blob)))
+        .then((res) => {
+          if (!res.ok) {
+            return res.json().then(errorData => {
+              throw new Error(errorData.error || `HTTP ${res.status}: ${res.statusText}`);
+            });
+          }
+          return res.blob();
+        })
+        .then((blob) => {
+          if (blob.size > 0) {
+            // Clean up previous video URL to prevent memory leaks
+            if (videoURL) {
+              URL.revokeObjectURL(videoURL);
+            }
+            const newVideoURL = URL.createObjectURL(blob);
+            console.log("Created video URL:", newVideoURL);
+            setVideoURL(newVideoURL);
+          } else {
+            throw new Error("Video file is empty");
+          }
+        })
         .catch((err) => {
           console.error("Failed to fetch video:", err);
+          // Only show error if video is actually not working
+          if (!err.message.includes("FileNotFoundError")) {
+            // You could set an error state here to show to the user
+          }
         });
     }
-  }, []);
+
+    // Cleanup function to revoke blob URL when component unmounts
+    return () => {
+      if (videoURL) {
+        URL.revokeObjectURL(videoURL);
+      }
+    };
+  }, [videoURL]);
 
   if (!data) {
     return (
@@ -134,10 +164,22 @@ const Page = () => {
           {/* Video */}
           <div className="bg-[#fefefe] rounded-xl shadow p-4 flex items-center justify-center text-gray-500 italic min-h-[300px]">
             {videoURL ? (
-              <video controls className="w-full rounded-lg shadow">
-                <source src={videoURL} type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
+              <div>
+                <video 
+                  controls 
+                  className="w-full rounded-lg shadow"
+                  preload="metadata"
+                  controlsList="nodownload"
+                  onContextMenu={(e) => e.preventDefault()}
+                  onLoadStart={() => console.log("Video loading started")}
+                  onCanPlay={() => console.log("Video can play")}
+                  onError={(e) => console.log("Video error:", e)}
+                >
+                  <source src={videoURL} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+                <p className="text-xs text-gray-500 mt-2">Video URL: {videoURL.substring(0, 50)}...</p>
+              </div>
             ) : (
               "Rendering animation..."
             )}
