@@ -3,6 +3,9 @@
 import { Button } from "@/components/ui/button";
 import React, { useEffect, useState } from "react";
 import CustomVideoPlayer from "@/components/CustomVideoPlayer";
+import AudioVideoPlayer from "@/components/AudioVideoPlayer";
+import TimedAudioInfo from "@/components/TimedAudioInfo";
+import { toast } from "react-toastify";
 
 const videoStyles = `
   .video-container video {
@@ -17,9 +20,57 @@ const Page = () => {
   const [selectedLang, setSelectedLang] = useState("cpp");
   const [selectedApproach, setSelectedApproach] = useState("bruteForce");
   const [videoURL, setVideoURL] = useState(null);
+  const [audioURL, setAudioURL] = useState(null);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [manimScript, setManimScript] = useState(null);
+
+  const algorithm = localStorage.getItem("currentQuestion");
+  const approach = selectedApproach;
+  const theory = data?.[selectedApproach]?.theory;
+
+  // Function to generate audio for current approach
+  const generateAudio = async () => {
+    if (!manimScript || !algorithm || !approach) {
+      toast.error("Please generate a video first");
+      return;
+    }
+
+    setAudioLoading(true);
+    try {
+      const response = await fetch("/api/generate-timed-audio", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          manimScript,
+          algorithm,
+          approach,
+          theory: theory || "Algorithm explanation"
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      setAudioURL(audioUrl);
+      setIsAudioEnabled(true);
+      toast.success("Timed audio narration generated successfully!");
+    } catch (error) {
+      console.error("Audio generation error:", error);
+      toast.error("Failed to generate timed audio narration");
+    } finally {
+      setAudioLoading(false);
+    }
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem("solutionData");
+    const question = localStorage.getItem("currentQuestion");
     if (stored) {
       const parsed = JSON.parse(stored);
       setData(parsed);
@@ -29,29 +80,45 @@ const Page = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ script: parsed.manimScript }),
       })
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+              .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        console.log("Received response:", data);
+        if (data.video) {
+          // Convert base64 to blob
+          const binaryString = atob(data.video);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
           }
-          return res.blob();
-        })
-        .then(blob => {
-          console.log("Received blob:", blob.size, "bytes");
-          if (blob.size > 0) {
-            const reader = new FileReader();
-            reader.onload = () => {
-              console.log("Created data URL for video");
-              setVideoURL(reader.result);
-            };
-            reader.readAsDataURL(blob);
-          } else {
-            throw new Error("Video file is empty");
+          const blob = new Blob([bytes], { type: 'video/mp4' });
+          
+          const reader = new FileReader();
+          reader.onload = () => {
+            console.log("Created data URL for video");
+            setVideoURL(reader.result);
+          };
+          reader.readAsDataURL(blob);
+          
+          // Store the script for timed audio generation
+          if (data.script) {
+            setManimScript(data.script);
           }
-        })
+        } else {
+          throw new Error("No video data received");
+        }
+      })
         .catch(err => {
           console.error("Video render failed:", err);
           // You could set an error state here to show to the user
         });
+
+      // Generate audio narration
+      generateAudio();
     }
 
     return () => {
@@ -61,6 +128,14 @@ const Page = () => {
       }
     };
   }, []);
+
+  // Regenerate audio when approach changes
+  useEffect(() => {
+    if (data && selectedApproach) {
+      const question = localStorage.getItem("currentQuestion");
+      generateAudio();
+    }
+  }, [selectedApproach, data]);
 
   if (!data) {
     return <p className="text-center mt-20 text-gray-500">Loading solution...</p>;
@@ -143,14 +218,49 @@ const Page = () => {
             </div>
           </div>
 
-          <div className="w-full lg:w-1/2 space-y-6 pt-10">
-            <div className="bg-[#fefefe] rounded-xl shadow p-4 flex items-center justify-center min-h-[300px]">
-              {videoURL ? (
-                <CustomVideoPlayer src={videoURL} />
-              ) : (
-                "Rendering animation..."
-              )}
-            </div>
+                      <div className="w-full lg:w-1/2 space-y-6 pt-10">
+              <div className="bg-[#fefefe] rounded-xl shadow p-4 flex flex-col items-center justify-center min-h-[300px]">
+                {/* Audio Controls */}
+                <div className="flex items-center gap-4 mb-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={isAudioEnabled}
+                      onChange={(e) => setIsAudioEnabled(e.target.checked)}
+                      className="rounded"
+                    />
+                    🔊 Audio Narration
+                    {audioLoading && (
+                      <span className="text-xs text-blue-500 ml-2">
+                        Generating timed narration...
+                      </span>
+                    )}
+                  </label>
+                  {audioURL && (
+                    <audio controls className="h-8">
+                      <source src={audioURL} type="audio/mpeg" />
+                      Your browser does not support audio.
+                    </audio>
+                  )}
+                </div>
+                
+                {/* Timed Audio Info */}
+                <TimedAudioInfo 
+                  manimScript={manimScript}
+                  audioURL={audioURL}
+                  isAudioEnabled={isAudioEnabled}
+                />
+                
+                {/* Video Player */}
+                {videoURL ? (
+                                      <AudioVideoPlayer 
+                      videoSrc={videoURL} 
+                      audioSrc={isAudioEnabled ? audioURL : null}
+                    />
+                ) : (
+                  "Rendering animation..."
+                )}
+              </div>
 
             <div className="bg-[#fefefe] shadow rounded-lg p-4 border">
               <h3 className="font-semibold text-yellow-800 mb-3">💻 Code</h3>

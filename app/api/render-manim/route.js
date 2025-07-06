@@ -112,20 +112,26 @@ class AlgorithmDemo(Scene):
       fs.writeFileSync(scriptPath, fallbackScript);
       console.log("Fallback script written to:", scriptPath);
     } else {
-      // Use the actual script from Gemini, but fix common issues
-      let finalScript = script;
-      
-      // Fix common issues in the script
-      if (script.includes("ListNode")) {
-        console.log("Detected ListNode in script, replacing with Rectangle");
-        finalScript = script.replace(/class ListNode\(VGroup\):/g, "# ListNode class removed");
-        finalScript = finalScript.replace(/LinkedListNode/g, "Rectangle");
-      }
-      
-      // Ensure proper imports
-      if (!finalScript.includes("from manim import *")) {
-        finalScript = "from manim import *\n" + finalScript;
-      }
+          // Use the actual script from Gemini, but fix common issues
+    let finalScript = script;
+    
+    // Fix common issues in the script
+    if (script.includes("ListNode")) {
+      console.log("Detected ListNode in script, replacing with Rectangle");
+      finalScript = script.replace(/class ListNode\(VGroup\):/g, "# ListNode class removed");
+      finalScript = finalScript.replace(/LinkedListNode/g, "Rectangle");
+    }
+    
+    // Ensure proper imports
+    if (!finalScript.includes("from manim import *")) {
+      finalScript = "from manim import *\n" + finalScript;
+    }
+    
+    // Add audio narration capability
+    if (!finalScript.includes("add_sound")) {
+      finalScript = finalScript.replace(/from manim import \*/g, `from manim import *
+import os`);
+    }
       
       fs.writeFileSync(scriptPath, finalScript);
       console.log("Original script written to:", scriptPath);
@@ -185,15 +191,25 @@ class AlgorithmDemo(Scene):
     fs.copyFileSync(mp4File, outputPath);
 
     const videoBuffer = fs.readFileSync(outputPath);
-    return new NextResponse(videoBuffer, {
+    
+    // Read the script file to include in response
+    let scriptContent = "";
+    if (fs.existsSync(scriptPath)) {
+      scriptContent = fs.readFileSync(scriptPath, 'utf8');
+    }
+    
+    // Return both video and script as JSON
+    return NextResponse.json({
+      video: videoBuffer.toString('base64'),
+      script: scriptContent,
+      videoSize: videoBuffer.length
+    }, {
       status: 200,
       headers: {
-        "Content-Type": "video/mp4",
-        "Content-Disposition": "inline; filename=output.mp4",
+        "Content-Type": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Pragma": "no-cache",
         "Expires": "0",
-        "Content-Length": videoBuffer.length.toString(),
       },
     });
   } catch (error) {

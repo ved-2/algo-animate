@@ -140,6 +140,7 @@ ${question}
       }
 
       localStorage.setItem("solutionData", JSON.stringify(parsedData));
+      localStorage.setItem("currentQuestion", question);
       router.push("/solution");
     } catch (error) {
       console.error("❌ Gemini Error:", error);
