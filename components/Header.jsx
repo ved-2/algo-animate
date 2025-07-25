@@ -32,11 +32,11 @@ const Header = () => {
               </Button>
             
             </Link>
-            <Link href="/connect">
+            <Link href="/prepare">
             
               <Button className="flex items-center gap-2" variant="outline">
                 <VideoIcon size={18} />
-                <span className="hidden md:inline">Connect</span>
+                <span className="hidden md:inline">Interview Prep</span>
               </Button>
             
             </Link>

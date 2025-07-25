@@ -2,10 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import React, { useEffect, useState } from "react";
-import CustomVideoPlayer from "@/components/CustomVideoPlayer";
 import AudioVideoPlayer from "@/components/AudioVideoPlayer";
-import TimedAudioInfo from "@/components/TimedAudioInfo";
 import { toast } from "react-toastify";
+import { CopilotPopup } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+import { useCopilotReadable } from "@copilotkit/react-core";
 
 const videoStyles = `
   .video-container video {
@@ -29,6 +30,10 @@ const Page = () => {
   const approach = selectedApproach;
   const theory = data?.[selectedApproach]?.theory;
 
+  useCopilotReadable({
+    description:"The Problem Statement of dsa",
+    value:data,
+  })
   // Function to generate audio for current approach
   const generateAudio = async () => {
     if (!manimScript || !algorithm || !approach) {
@@ -47,7 +52,7 @@ const Page = () => {
           manimScript,
           algorithm,
           approach,
-          theory: theory || "Algorithm explanation"
+          theory: theory || "Algorithm explanation",
         }),
       });
 
@@ -80,39 +85,39 @@ const Page = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ script: parsed.manimScript }),
       })
-              .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
-        return res.json();
-      })
-      .then(data => {
-        console.log("Received response:", data);
-        if (data.video) {
-          // Convert base64 to blob
-          const binaryString = atob(data.video);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
           }
-          const blob = new Blob([bytes], { type: 'video/mp4' });
-          
-          const reader = new FileReader();
-          reader.onload = () => {
-            console.log("Created data URL for video");
-            setVideoURL(reader.result);
-          };
-          reader.readAsDataURL(blob);
-          
-          // Store the script for timed audio generation
-          if (data.script) {
-            setManimScript(data.script);
+          return res.json();
+        })
+        .then((data) => {
+          console.log("Received response:", data);
+          if (data.video) {
+            // Convert base64 to blob
+            const binaryString = atob(data.video);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: "video/mp4" });
+
+            const reader = new FileReader();
+            reader.onload = () => {
+              console.log("Created data URL for video");
+              setVideoURL(reader.result);
+            };
+            reader.readAsDataURL(blob);
+
+            // Store the script for timed audio generation
+            if (data.script) {
+              setManimScript(data.script);
+            }
+          } else {
+            throw new Error("No video data received");
           }
-        } else {
-          throw new Error("No video data received");
-        }
-      })
-        .catch(err => {
+        })
+        .catch((err) => {
           console.error("Video render failed:", err);
           // You could set an error state here to show to the user
         });
@@ -123,7 +128,7 @@ const Page = () => {
 
     return () => {
       // Only revoke if it's a blob URL (starts with blob:)
-      if (videoURL && videoURL.startsWith('blob:')) {
+      if (videoURL && videoURL.startsWith("blob:")) {
         URL.revokeObjectURL(videoURL);
       }
     };
@@ -138,7 +143,9 @@ const Page = () => {
   }, [selectedApproach, data]);
 
   if (!data) {
-    return <p className="text-center mt-20 text-gray-500">Loading solution...</p>;
+    return (
+      <p className="text-center mt-20 text-gray-500">Loading solution...</p>
+    );
   }
 
   const section = data[selectedApproach];
@@ -164,7 +171,7 @@ const Page = () => {
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
           <div className="w-full lg:w-1/2 space-y-6">
             <div className="flex gap-2 mb-2">
-              {approachTabs.map(tab => (
+              {approachTabs.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setSelectedApproach(tab.key)}
@@ -180,8 +187,12 @@ const Page = () => {
             </div>
 
             <div className="bg-[#fefefe] p-4 rounded-lg shadow border">
-              <h1 className="text-2xl font-bold text-gray-800 mb-4">📘 Theory</h1>
-              <p className="text-gray-700 whitespace-pre-wrap">{section.theory}</p>
+              <h1 className="text-2xl font-bold text-gray-800 mb-4">
+                📘 Theory
+              </h1>
+              <p className="text-gray-700 whitespace-pre-wrap">
+                {section.theory}
+              </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -199,13 +210,17 @@ const Page = () => {
               <div className="bg-[#fefefe] shadow rounded-lg p-4 w-1/2 border">
                 <h3 className="font-semibold text-green-700 mb-2">✅ Pros</h3>
                 <ul className="list-disc text-sm pl-4 text-gray-700">
-                  {section.pros?.map((item, idx) => <li key={idx}>{item}</li>)}
+                  {section.pros?.map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
                 </ul>
               </div>
               <div className="bg-[#fefefe] shadow rounded-lg p-4 w-1/2 border">
                 <h3 className="font-semibold text-red-700 mb-2">❌ Cons</h3>
                 <ul className="list-disc text-sm pl-4 text-gray-700">
-                  {section.cons?.map((item, idx) => <li key={idx}>{item}</li>)}
+                  {section.cons?.map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -213,60 +228,31 @@ const Page = () => {
             <div className="bg-[#fefefe] p-4 rounded-lg shadow border">
               <h4 className="font-semibold mb-2">📌 Use Cases</h4>
               <ul className="list-disc text-sm pl-4 text-gray-700">
-                {section.useCases?.map((item, idx) => <li key={idx}>{item}</li>)}
+                {section.useCases?.map((item, idx) => (
+                  <li key={idx}>{item}</li>
+                ))}
               </ul>
             </div>
           </div>
 
-                      <div className="w-full lg:w-1/2 space-y-6 pt-10">
-              <div className="bg-[#fefefe] rounded-xl shadow p-4 flex flex-col items-center justify-center min-h-[300px]">
-                {/* Audio Controls */}
-                <div className="flex items-center gap-4 mb-4">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={isAudioEnabled}
-                      onChange={(e) => setIsAudioEnabled(e.target.checked)}
-                      className="rounded"
-                    />
-                    🔊 Audio Narration
-                    {audioLoading && (
-                      <span className="text-xs text-blue-500 ml-2">
-                        Generating timed narration...
-                      </span>
-                    )}
-                  </label>
-                  {audioURL && (
-                    <audio controls className="h-8">
-                      <source src={audioURL} type="audio/mpeg" />
-                      Your browser does not support audio.
-                    </audio>
-                  )}
-                </div>
-                
-                {/* Timed Audio Info */}
-                <TimedAudioInfo 
-                  manimScript={manimScript}
-                  audioURL={audioURL}
-                  isAudioEnabled={isAudioEnabled}
+          <div className="w-full lg:w-1/2 space-y-6 pt-10">
+            <div className="bg-[#fefefe] rounded-xl shadow p-4 flex flex-col items-center justify-center min-h-[300px]">
+              {/* Video Player */}
+              {videoURL ? (
+                <AudioVideoPlayer
+                  videoSrc={videoURL}
+                  audioSrc={isAudioEnabled ? audioURL : null}
                 />
-                
-                {/* Video Player */}
-                {videoURL ? (
-                                      <AudioVideoPlayer 
-                      videoSrc={videoURL} 
-                      audioSrc={isAudioEnabled ? audioURL : null}
-                    />
-                ) : (
-                  "Rendering animation..."
-                )}
-              </div>
+              ) : (
+                "Rendering animation..."
+              )}
+            </div>
 
             <div className="bg-[#fefefe] shadow rounded-lg p-4 border">
               <h3 className="font-semibold text-yellow-800 mb-3">💻 Code</h3>
               <div className="flex gap-2 mb-4 justify-between">
                 <div className="flex gap-2">
-                  {codeTabs.map(tab => (
+                  {codeTabs.map((tab) => (
                     <button
                       key={tab.key}
                       onClick={() => setSelectedLang(tab.key)}
@@ -282,7 +268,9 @@ const Page = () => {
                 </div>
                 <Button
                   onClick={() =>
-                    navigator.clipboard.writeText(section.code?.[selectedLang] || "")
+                    navigator.clipboard.writeText(
+                      section.code?.[selectedLang] || ""
+                    )
                   }
                 >
                   Copy
@@ -290,8 +278,11 @@ const Page = () => {
               </div>
 
               <pre className="bg-gray-100 rounded p-4 text-sm overflow-x-auto text-gray-800 whitespace-pre-wrap">
-                <code>{section.code?.[selectedLang] || "// No code available."}</code>
+                <code>
+                  {section.code?.[selectedLang] || "// No code available."}
+                </code>
               </pre>
+              <CopilotPopup />
             </div>
           </div>
         </div>

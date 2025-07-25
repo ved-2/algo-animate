@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import Header from "@/components/Header";
+import { CopilotKit } from "@copilotkit/react-core";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,18 +18,20 @@ export default function RootLayout({ children }) {
     <ClerkProvider>
       <html lang="en">
         <body className={`${inter.className} min-h-screen flex flex-col`}>
-          {/* Header */}
-          <Header />
+          <CopilotKit publicApiKey="ck_pub_faec2cff9fb6283e3cdb6997413a4fbe">
+            {/* Header */}
+            <Header />
 
-          {/* Main content */}
-          <main className="flex-1">{children}</main>
+            {/* Main content */}
+            <main className="flex-1">{children}</main>
 
-          {/* Footer */}
-          <footer className="bg-gray-50 py-7 mt-auto">
-            <div className="container mx-auto px-4 text-center text-gray-600">
-              <p>Visualize . Understand . Code better</p>
-            </div>
-          </footer>
+            {/* Footer */}
+            <footer className="bg-gray-50 py-7 mt-auto">
+              <div className="container mx-auto px-4 text-center text-gray-600">
+                <p>Visualize . Understand . Code better</p>
+              </div>
+            </footer>
+          </CopilotKit>
         </body>
       </html>
     </ClerkProvider>
