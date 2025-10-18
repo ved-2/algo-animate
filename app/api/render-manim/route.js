@@ -39,30 +39,88 @@ export async function POST(req) {
 
   try {
     console.log("API route called");
-    
-    const body = await req.json();
-    console.log("Request body received");
-    
-    const { script } = body;
-    if (!script) {
-      console.log("No script provided");
-      return NextResponse.json({ error: "No script provided" }, { status: 400 });
+
+    // Parse body robustly: prefer JSON, but accept text, form-data and urlencoded bodies
+    let script = null;
+    try {
+      // Some runtimes support req.json() and req.formData(); try json first
+      const contentType = req.headers.get("content-type") || "";
+
+      if (contentType.includes("application/json")) {
+        const body = await req.json();
+        console.log("Request JSON body received");
+        script = body?.script ?? body?.text ?? null;
+      } else if (
+        contentType.includes("application/x-www-form-urlencoded") ||
+        contentType.includes("text/plain")
+      ) {
+        const text = await req.text();
+        console.log("Request text body received");
+        // If urlencoded, try to parse key=val pairs
+        if (
+          contentType.includes("application/x-www-form-urlencoded") &&
+          text.includes("=")
+        ) {
+          const params = new URLSearchParams(text);
+          script = params.get("script") || params.get("text") || text;
+        } else {
+          script = text;
+        }
+      } else if (typeof req.formData === "function") {
+        // handle multipart/form-data and FormData
+        const form = await req.formData();
+        console.log("Request form-data body received");
+        if (form.has("script")) {
+          const v = form.get("script");
+          script = typeof v === "string" ? v : null;
+        }
+      } else {
+        // fallback: try to parse as json, then text
+        try {
+          const body = await req.json();
+          console.log("Fallback JSON parsed");
+          script = body?.script ?? body?.text ?? null;
+        } catch (e) {
+          const text = await req.text();
+          console.log("Fallback text read");
+          script = text;
+        }
+      }
+    } catch (e) {
+      console.log("Error parsing request body:", e);
     }
 
-    console.log("Received script:", script.substring(0, 200) + "...");
-    
+    if (!script || script.trim().length === 0) {
+      console.log("No script provided or script empty");
+      return NextResponse.json(
+        { error: "No script provided or script was empty" },
+        { status: 400 }
+      );
+    }
+
+    console.log(
+      "Received script:",
+      script.substring(0, Math.min(200, script.length)) + "..."
+    );
+
     // Set up directories
     tempDir = path.join(process.cwd(), "public", "manim-temp");
     if (!fs.existsSync(tempDir)) {
       console.log("Creating tempDir:", tempDir);
       fs.mkdirSync(tempDir, { recursive: true });
     }
-    
+
     scriptPath = path.join(tempDir, "script.py");
-    
+
     // Check if script is just a template or has issues
-    if (script.includes("# animation logic") || script.includes("# Create a complete algorithm animation") || !script.includes("class AlgorithmDemo(Scene):")) {
-      console.log("Detected template script or missing AlgorithmDemo class, using fallback");
+    if (
+      script.includes("# animation logic") ||
+      script.includes("# Create a complete algorithm animation") ||
+      !script.includes("class AlgorithmDemo(Scene):")
+    ) {
+      console.log(
+        "Detected template script or missing AlgorithmDemo class, using fallback"
+      );
       const fallbackScript = `from manim import *
 class AlgorithmDemo(Scene):
     def construct(self):
@@ -108,31 +166,46 @@ class AlgorithmDemo(Scene):
         # Show completion
         self.play(title.animate.set_color(GREEN))
         self.wait(1)`;
-      
+
       fs.writeFileSync(scriptPath, fallbackScript);
       console.log("Fallback script written to:", scriptPath);
     } else {
-          // Use the actual script from Gemini, but fix common issues
-    let finalScript = script;
-    
-    // Fix common issues in the script
-    if (script.includes("ListNode")) {
-      console.log("Detected ListNode in script, replacing with Rectangle");
-      finalScript = script.replace(/class ListNode\(VGroup\):/g, "# ListNode class removed");
-      finalScript = finalScript.replace(/LinkedListNode/g, "Rectangle");
-    }
-    
-    // Ensure proper imports
-    if (!finalScript.includes("from manim import *")) {
-      finalScript = "from manim import *\n" + finalScript;
-    }
-    
-    // Add audio narration capability
-    if (!finalScript.includes("add_sound")) {
-      finalScript = finalScript.replace(/from manim import \*/g, `from manim import *
-import os`);
-    }
-      
+      // Use the actual script from Gemini, but fix common issues
+      let finalScript = script;
+
+      // Fix common issues in the script
+      if (script.includes("ListNode")) {
+        console.log(
+          "Detected ListNode in script, removing class definition and replacing usages with Rectangle"
+        );
+        // Remove the entire class definition including its indented body to avoid leaving orphaned indented
+        // lines like `def __init__` at top-level which cause IndentationError in Python.
+        // This matches 'class ListNode(...):' followed by any number of indented lines.
+        finalScript = finalScript.replace(
+          /class\s+ListNode\s*\([^\)]*\):\n(?:[ \t].*\n)*/gm,
+          ""
+        );
+
+        // Replace usages of construction or references to ListNode/LinkedListNode with Rectangle to keep the script runnable.
+        // Note: this is a pragmatic fallback; complex user scripts may need manual adjustment.
+        finalScript = finalScript.replace(/\bListNode\b/g, "Rectangle");
+        finalScript = finalScript.replace(/LinkedListNode/g, "Rectangle");
+      }
+
+      // Ensure proper imports
+      if (!finalScript.includes("from manim import *")) {
+        finalScript = "from manim import *\n" + finalScript;
+      }
+
+      // Add audio narration capability
+      if (!finalScript.includes("add_sound")) {
+        finalScript = finalScript.replace(
+          /from manim import \*/g,
+          `from manim import *
+import os`
+        );
+      }
+
       fs.writeFileSync(scriptPath, finalScript);
       console.log("Original script written to:", scriptPath);
       console.log("Script preview:", finalScript.substring(0, 300) + "...");
@@ -155,28 +228,37 @@ import os`);
     const env = {
       ...process.env,
       PATH: `${process.env.PATH};C:\\Users\\vedan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-7.1.1-full_build\\bin`,
-      FFMPEG_BINARY: "C:\\Users\\vedan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-7.1.1-full_build\\bin\\ffmpeg.exe"
+      FFMPEG_BINARY:
+        "C:\\Users\\vedan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-7.1.1-full_build\\bin\\ffmpeg.exe",
     };
 
     await new Promise((resolve, reject) => {
-      const child = exec(manimCmd, { cwd: tempDir, env }, (err, stdout, stderr) => {
-        console.log("Manim stdout:", stdout);
-        console.log("Manim stderr:", stderr);
-        
-        if (err) {
-          console.log("Manim error:", err);
+      const child = exec(
+        manimCmd,
+        { cwd: tempDir, env },
+        (err, stdout, stderr) => {
+          console.log("Manim stdout:", stdout);
+          console.log("Manim stderr:", stderr);
+
+          if (err) {
+            console.log("Manim error:", err);
+          }
+
+          const mediaDir = path.join(tempDir, "media", "videos");
+          const mp4File = findMp4File(mediaDir);
+
+          if (mp4File) {
+            console.log("Found video file:", mp4File);
+            return resolve();
+          }
+
+          reject(
+            new Error(
+              stderr || stdout || err?.message || "No video file generated"
+            )
+          );
         }
-        
-        const mediaDir = path.join(tempDir, "media", "videos");
-        const mp4File = findMp4File(mediaDir);
-        
-        if (mp4File) {
-          console.log("Found video file:", mp4File);
-          return resolve();
-        }
-        
-        reject(new Error(stderr || stdout || err?.message || "No video file generated"));
-      });
+      );
 
       setTimeout(() => {
         child.kill();
@@ -186,32 +268,36 @@ import os`);
 
     const mediaDir = path.join(tempDir, "media", "videos");
     const mp4File = findMp4File(mediaDir);
-    if (!mp4File) return NextResponse.json({ error: "No video found" }, { status: 500 });
+    if (!mp4File)
+      return NextResponse.json({ error: "No video found" }, { status: 500 });
 
     fs.copyFileSync(mp4File, outputPath);
 
     const videoBuffer = fs.readFileSync(outputPath);
-    
+
     // Read the script file to include in response
     let scriptContent = "";
     if (fs.existsSync(scriptPath)) {
-      scriptContent = fs.readFileSync(scriptPath, 'utf8');
+      scriptContent = fs.readFileSync(scriptPath, "utf8");
     }
-    
+
     // Return both video and script as JSON
-    return NextResponse.json({
-      video: videoBuffer.toString('base64'),
-      script: scriptContent,
-      videoSize: videoBuffer.length
-    }, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0",
+    return NextResponse.json(
+      {
+        video: videoBuffer.toString("base64"),
+        script: scriptContent,
+        videoSize: videoBuffer.length,
       },
-    });
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json({ error: error.toString() }, { status: 500 });
   } finally {

@@ -6,9 +6,12 @@ import path from "path";
 export async function POST(req) {
   try {
     const { algorithm, approach, manimScript, theory } = await req.json();
-    
+
     if (!algorithm) {
-      return NextResponse.json({ error: "No algorithm provided" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No algorithm provided" },
+        { status: 400 }
+      );
     }
 
     // Create audio directory
@@ -18,7 +21,7 @@ export async function POST(req) {
     }
 
     const audioPath = path.join(audioDir, "narration.mp3");
-    
+
     // Use Gemini to generate contextual narration
     const prompt = `You are an expert algorithm narrator. Create a detailed, step-by-step audio narration script for an algorithm animation.
 
@@ -41,7 +44,9 @@ Create a natural, educational narration that:
 Write only the narration text, no explanations or formatting. Keep it under 200 words and make it flow naturally.`;
 
     // Call Gemini API to generate contextual narration
-    const geminiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyD0aL6eVBo0qQqmrMuJUtjnkCJx3ktij6g", {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+    const geminiResponse = await fetch(geminiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -60,7 +65,8 @@ Write only the narration text, no explanations or formatting. Keep it under 200 
     });
 
     const geminiResult = await geminiResponse.json();
-    const narrationText = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
+    const narrationText =
+      geminiResult.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
       `This is the ${approach} approach to ${algorithm}. Watch as we process the data step by step.`;
 
     // Use gTTS (Google Text-to-Speech) to generate audio
@@ -72,7 +78,7 @@ import os
 text = """${narrationText}"""
 
 tts = gTTS(text=text, lang='en', slow=False)
-tts.save("${audioPath.replace(/\\/g, '\\\\')}")
+tts.save("${audioPath.replace(/\\/g, "\\\\")}")
 print("Audio generated successfully")
 `;
 
@@ -94,7 +100,7 @@ print("Audio generated successfully")
 
     // Read the generated audio file
     const audioBuffer = fs.readFileSync(audioPath);
-    
+
     return new NextResponse(audioBuffer, {
       status: 200,
       headers: {
@@ -102,9 +108,8 @@ print("Audio generated successfully")
         "Content-Disposition": "inline; filename=narration.mp3",
       },
     });
-
   } catch (error) {
     console.log("Audio generation error:", error);
     return NextResponse.json({ error: error.toString() }, { status: 500 });
   }
-} 
+}

@@ -1,1 +1,2 @@
-export const URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyD0aL6eVBo0qQqmrMuJUtjnkCJx3ktij6g"
+// Use a server-side proxy to keep the API key secret and avoid CORS issues.
+export const URL = "/api/gemini";

@@ -6,9 +6,12 @@ import path from "path";
 export async function POST(req) {
   try {
     const { manimScript, algorithm, approach, theory } = await req.json();
-    
+
     if (!manimScript) {
-      return NextResponse.json({ error: "No manim script provided" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No manim script provided" },
+        { status: 400 }
+      );
     }
 
     // Create audio directory
@@ -19,16 +22,21 @@ export async function POST(req) {
 
     // Analyze the manim script to extract timing and actions
     const scriptAnalysis = analyzeManimScript(manimScript);
-    
+
     // Generate timed narration using Gemini
-    const timedNarration = await generateTimedNarration(scriptAnalysis, algorithm, approach, theory);
-    
+    const timedNarration = await generateTimedNarration(
+      scriptAnalysis,
+      algorithm,
+      approach,
+      theory
+    );
+
     // Create audio segments and combine them
     const audioPath = await createTimedAudio(timedNarration, audioDir);
-    
+
     // Read the generated audio file
     const audioBuffer = fs.readFileSync(audioPath);
-    
+
     return new NextResponse(audioBuffer, {
       status: 200,
       headers: {
@@ -36,7 +44,6 @@ export async function POST(req) {
         "Content-Disposition": "inline; filename=timed-narration.mp3",
       },
     });
-
   } catch (error) {
     console.log("Timed audio generation error:", error);
     console.log("Error details:", error.stack);
@@ -48,19 +55,19 @@ function analyzeManimScript(script) {
   const analysis = {
     totalDuration: 0,
     segments: [],
-    actions: []
+    actions: [],
   };
 
   // Extract timing information from manim script
-  const lines = script.split('\n');
+  const lines = script.split("\n");
   let currentTime = 0;
   let segmentIndex = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    
+
     // Look for self.wait() calls to track timing
-    if (line.includes('self.wait(')) {
+    if (line.includes("self.wait(")) {
       const waitMatch = line.match(/self\.wait\((\d+(?:\.\d+)?)\)/);
       if (waitMatch) {
         const waitTime = parseFloat(waitMatch[1]);
@@ -68,22 +75,26 @@ function analyzeManimScript(script) {
         analysis.totalDuration += waitTime;
       }
     }
-    
+
     // Look for self.play() calls to identify actions
-    if (line.includes('self.play(')) {
+    if (line.includes("self.play(")) {
       const action = extractActionFromPlay(line);
       if (action) {
         analysis.actions.push({
           time: currentTime,
           action: action,
-          segmentIndex: segmentIndex
+          segmentIndex: segmentIndex,
         });
         segmentIndex++;
       }
     }
-    
+
     // Look for Create, Write, Transform animations
-    if (line.includes('Create(') || line.includes('Write(') || line.includes('Transform(')) {
+    if (
+      line.includes("Create(") ||
+      line.includes("Write(") ||
+      line.includes("Transform(")
+    ) {
       const animation = extractAnimationType(line);
       if (animation) {
         analysis.segments.push({
@@ -91,7 +102,7 @@ function analyzeManimScript(script) {
           duration: 1.0, // Default duration
           type: animation.type,
           description: animation.description,
-          segmentIndex: segmentIndex
+          segmentIndex: segmentIndex,
         });
         segmentIndex++;
       }
@@ -103,34 +114,39 @@ function analyzeManimScript(script) {
 
 function extractActionFromPlay(line) {
   // Extract what's being animated from self.play() calls
-  if (line.includes('Create(')) {
-    return 'creating element';
-  } else if (line.includes('Write(')) {
-    return 'writing text';
-  } else if (line.includes('Transform(')) {
-    return 'transforming element';
-  } else if (line.includes('set_color(')) {
-    return 'changing color';
-  } else if (line.includes('animate.')) {
-    return 'animating element';
+  if (line.includes("Create(")) {
+    return "creating element";
+  } else if (line.includes("Write(")) {
+    return "writing text";
+  } else if (line.includes("Transform(")) {
+    return "transforming element";
+  } else if (line.includes("set_color(")) {
+    return "changing color";
+  } else if (line.includes("animate.")) {
+    return "animating element";
   }
-  return 'performing action';
+  return "performing action";
 }
 
 function extractAnimationType(line) {
-  if (line.includes('Create(')) {
-    return { type: 'create', description: 'creating new element' };
-  } else if (line.includes('Write(')) {
-    return { type: 'write', description: 'writing text' };
-  } else if (line.includes('Transform(')) {
-    return { type: 'transform', description: 'transforming element' };
-  } else if (line.includes('set_color(')) {
-    return { type: 'color', description: 'changing color' };
+  if (line.includes("Create(")) {
+    return { type: "create", description: "creating new element" };
+  } else if (line.includes("Write(")) {
+    return { type: "write", description: "writing text" };
+  } else if (line.includes("Transform(")) {
+    return { type: "transform", description: "transforming element" };
+  } else if (line.includes("set_color(")) {
+    return { type: "color", description: "changing color" };
   }
   return null;
 }
 
-async function generateTimedNarration(scriptAnalysis, algorithm, approach, theory) {
+async function generateTimedNarration(
+  scriptAnalysis,
+  algorithm,
+  approach,
+  theory
+) {
   const prompt = `You are an expert algorithm narrator. Create timed audio narration segments that match the animation timing.
 
 Algorithm: ${algorithm}
@@ -140,7 +156,9 @@ Theory: ${theory || "Algorithm explanation"}
 Animation Analysis:
 - Total Duration: ${scriptAnalysis.totalDuration} seconds
 - Number of Segments: ${scriptAnalysis.segments.length}
-- Actions: ${scriptAnalysis.actions.map(a => `${a.time}s: ${a.action}`).join(', ')}
+- Actions: ${scriptAnalysis.actions
+    .map((a) => `${a.time}s: ${a.action}`)
+    .join(", ")}
 
 Create ${scriptAnalysis.segments.length} narration segments that:
 1. Match the timing of each animation segment
@@ -159,7 +177,9 @@ Example:
 Write only the timed narration, no explanations.`;
 
   // Call Gemini API
-  const geminiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyD0aL6eVBo0qQqmrMuJUtjnkCJx3ktij6g", {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+  const geminiResponse = await fetch(geminiUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -178,22 +198,26 @@ Write only the timed narration, no explanations.`;
   });
 
   const geminiResult = await geminiResponse.json();
-  return geminiResult.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
-    `0: Welcome to the ${algorithm} algorithm. Let's examine our data step by step.`;
+  return (
+    geminiResult.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+    `0: Welcome to the ${algorithm} algorithm. Let's examine our data step by step.`
+  );
 }
 
 async function createTimedAudio(timedNarration, audioDir) {
   // Parse the timed narration
   const segments = parseTimedNarration(timedNarration);
-  
+
   // Generate audio for each segment
   const audioFiles = [];
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
     const audioFile = path.join(audioDir, `segment_${i}.mp3`);
-    
+
     // Generate audio for this segment
-    const escapedNarration = segment.narration.replace(/"/g, '\\"').replace(/'/g, "\\'");
+    const escapedNarration = segment.narration
+      .replace(/"/g, '\\"')
+      .replace(/'/g, "\\'");
     const pythonScript = `
 import gtts
 from gtts import gTTS
@@ -202,7 +226,7 @@ import os
 text = "${escapedNarration}"
 
 tts = gTTS(text=text, lang='en', slow=False)
-tts.save("${audioFile.replace(/\\/g, '\\\\')}")
+tts.save("${audioFile.replace(/\\/g, "\\\\")}")
 print("Segment ${i} generated")
 `;
 
@@ -227,24 +251,24 @@ print("Segment ${i} generated")
 
   // Combine audio files with proper timing
   const finalAudioPath = path.join(audioDir, "final-narration.mp3");
-  
+
   // Use ffmpeg to concatenate audio files
   const concatScript = `
 import subprocess
 import os
 
 input_files = ${JSON.stringify(audioFiles)}
-output_file = "${finalAudioPath.replace(/\\/g, '\\\\')}"
+output_file = "${finalAudioPath.replace(/\\/g, "\\\\")}"
 
 # Create file list for ffmpeg
-with open("${audioDir.replace(/\\/g, '\\\\')}/filelist.txt", "w") as f:
+with open("${audioDir.replace(/\\/g, "\\\\")}/filelist.txt", "w") as f:
     for file in input_files:
         f.write(f"file '{file}'\\n")
 
 # Concatenate using ffmpeg
 subprocess.run([
     "ffmpeg", "-f", "concat", "-safe", "0", 
-    "-i", "${audioDir.replace(/\\/g, '\\\\')}/filelist.txt", 
+    "-i", "${audioDir.replace(/\\/g, "\\\\")}/filelist.txt", 
     "-c", "copy", output_file
 ])
 print("Audio concatenated successfully")
@@ -270,17 +294,17 @@ print("Audio concatenated successfully")
 
 function parseTimedNarration(narration) {
   const segments = [];
-  const lines = narration.split('\n');
-  
+  const lines = narration.split("\n");
+
   for (const line of lines) {
     const match = line.match(/(\d+):\s*(.+)/);
     if (match) {
       segments.push({
         time: parseInt(match[1]),
-        narration: match[2].trim()
+        narration: match[2].trim(),
       });
     }
   }
-  
+
   return segments;
-} 
+}

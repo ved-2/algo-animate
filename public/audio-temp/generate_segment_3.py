@@ -3,7 +3,7 @@ import gtts
 from gtts import gTTS
 import os
 
-text = "If the complement exists, we found our pair.\""
+text = "This recursive function swaps elements at the left and right indices."
 
 tts = gTTS(text=text, lang='en', slow=False)
 tts.save("C:\\Users\\vedan\\OneDrive\\Desktop\\Web Dev\\algo-animate\\public\\audio-temp\\segment_3.mp3")

@@ -25,21 +25,19 @@ const Header = () => {
               </Button>
             </Link>
             <Link href="/visualize">
-            
               <Button className="flex items-center gap-2" variant="outline">
                 <PenBox size={18} />
                 <span className="hidden md:inline">Visualize</span>
               </Button>
-            
             </Link>
-            <Link href="/prepare">
+            {/* <Link href="/prepare">
             
               <Button className="flex items-center gap-2" variant="outline">
                 <VideoIcon size={18} />
                 <span className="hidden md:inline">Interview Prep</span>
               </Button>
             
-            </Link>
+            </Link> */}
           </SignedIn>
           <SignedOut>
             <SignInButton forceRedirectUrl="/">
